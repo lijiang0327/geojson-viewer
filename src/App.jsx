@@ -1,6 +1,6 @@
-import React, {useState} from 'react';
-import Map, {Source, Layer} from 'react-map-gl';
-import {FileUploader} from 'react-drag-drop-files';
+import React, { useState } from 'react';
+import Map, { Source, Layer } from 'react-map-gl';
+import { FileUploader } from 'react-drag-drop-files';
 import {
   Slider,
   SliderTrack,
@@ -13,11 +13,11 @@ import {
   Tag,
   TagLabel,
   TagCloseButton,
-  Text
-} from '@chakra-ui/react'
+  Text,
+} from '@chakra-ui/react';
 
 import './App.css';
-import {getJsonData} from './utils/getGeojson';
+import getJsonData from './utils/getGeojson';
 
 function App() {
   const [geojsonDatas, setGeojsonDatas] = useState([]);
@@ -30,25 +30,25 @@ function App() {
       setGeojsonDatas([...geojsonDatas, JSON.parse(text)]);
       setFiles([...files, file]);
     } catch (error) {
-      console.log(error)
+      console.log(error);
     }
   };
 
   const getLayers = () => {
     const jsonData = getJsonData();
-    if (!jsonData.layers) return;
-    
+    if (!jsonData.layers) return null;
+
     return jsonData.layers.map((layer) => (
-      <Layer key={layer.id} {...layer}></Layer>
+      <Layer {...layer} key={layer.id} />
     ));
-  }
+  };
 
-  const sourceData = geojsonDatas.reduce((pre, data) => {
-    pre.features = [...pre.features, ...data.features];
-    return pre;
-  }, {generator: "JOSM", type: "FeatureCollection", features: []})
+  const sourceData = geojsonDatas.reduce((pre, data) => ({
+    ...pre,
+    features: [...pre.features, ...data.features],
+  }), { generator: 'JOSM', type: 'FeatureCollection', features: [] });
 
-  sourceData.features = sourceData.features.filter(({properties: {minzoom, maxzoom}}) => {
+  sourceData.features = sourceData.features.filter(({ properties: { minzoom, maxzoom } }) => {
     if (!minzoom && !maxzoom) return true;
 
     if (minzoom && maxzoom) return minzoom <= zoom && maxzoom >= zoom;
@@ -58,7 +58,7 @@ function App() {
     if (!minzoom && maxzoom) return maxzoom >= zoom;
 
     return true;
-  })
+  });
 
   return (
     <Container p="0" className="app">
@@ -68,40 +68,40 @@ function App() {
           initialViewState={{
             longitude: 115.457900,
             latitude: 38.915643,
-            zoom: 15
+            zoom: 15,
           }}
-          onZoom={({viewState: {zoom}}) => {setZoom(zoom)}}
-          style={{width: '100%', height: '100%'}}
+          onZoom={({ viewState: { zoom: z } }) => { setZoom(z); }}
+          style={{ width: '100%', height: '100%' }}
           mapStyle="mapbox://styles/mapbox/streets-v9"
           pitch={mapPitch}
           renderWorldCopies={false}
         >
           <Source
-              type="geojson"
-              data={sourceData}
-              id={'source-data'}
-            >
-              {getLayers()}
-            </Source>
+            type="geojson"
+            data={sourceData}
+            id="source-data"
+          >
+            {getLayers()}
+          </Source>
         </Map>
       </Container>
-      <Container 
-        pt="4" 
-        pl="2" 
-        pr="2" 
-        position="absolute" 
-        top="0" 
-        right="0" 
-        display="flex" 
-        gap="32px" 
+      <Container
+        pt="4"
+        pl="2"
+        pr="2"
+        position="absolute"
+        top="0"
+        right="0"
+        display="flex"
+        gap="32px"
         flexDirection="column"
         width="240px"
         backgroundColor="#EEEEEE"
         height="100vh"
       >
         <VStack>
-          {!!files.length && files.map((file, index) => {
-            return <Tag key={file.name + index}>
+          {!!files.length && files.map((file, index) => (
+            <Tag key={file.name}>
               <TagLabel>{file.name}</TagLabel>
               <TagCloseButton onClick={() => {
                 const newFileList = [...files];
@@ -110,31 +110,33 @@ function App() {
                 newGeojsonList.splice(index, 1);
                 setFiles([...newFileList]);
                 setGeojsonDatas([...newGeojsonList]);
-              }}></TagCloseButton>
+              }}
+              />
             </Tag>
-          })}
+          ))}
         </VStack>
         <Container>
           <Heading size="md" mb="4">选择地图：</Heading>
-          <FileUploader classes="uploader" style={{minWidth: 'none'}} label="选择地图" handleChange={handleChange} name="mapFile" types={['geojson']} />
+          <FileUploader classes="uploader" style={{ minWidth: 'none' }} label="选择地图" handleChange={handleChange} name="mapFile" types={['geojson']} />
         </Container>
         <Container>
           <Heading size="md" mb="4">3d效果：</Heading>
-          <Slider aria-label='slider-ex-1' defaultValue={mapPitch} onChange={(value) => {setMapPitch(value)}}>
+          <Slider aria-label="slider-ex-1" defaultValue={mapPitch} onChange={(value) => { setMapPitch(value); }}>
             <SliderTrack>
               <SliderFilledTrack />
             </SliderTrack>
             <SliderThumb />
             <SliderMark
               value={mapPitch}
-              textAlign='center'
-              bg='blue.500'
-              color='white'
-              mt='4'
-              ml='-5'
-              w='12'
+              textAlign="center"
+              bg="blue.500"
+              color="white"
+              mt="4"
+              ml="-5"
+              w="12"
             >
-              {mapPitch}%
+              {mapPitch}
+              %
             </SliderMark>
           </Slider>
         </Container>
@@ -147,4 +149,4 @@ function App() {
   );
 }
 
-export default App
+export default App;
