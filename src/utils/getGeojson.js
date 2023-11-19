@@ -21,12 +21,21 @@ const getJsonData = () => {
     },
     layers: [
       {
+        id: 'ground',
+        type: 'fill',
+        source: 'floorplan',
+        filter: ['==', 'style_type', 'ground'],
+        paint: {
+          'fill-color': ['case', ['has', 'fill_color'], ['get', 'fill_color'], '#ffffff'],
+        },
+      },
+      {
         id: 'way',
         type: 'fill',
         source: 'floorplan',
         filter: ['==', 'style_type', 'way'],
         paint: {
-          'fill-color': ['case', ['has', 'fill_color'], ['get', 'fill_color'], '#fff'],
+          'fill-color': ['case', ['has', 'fill_color'], ['get', 'fill_color'], '#ffffff'],
         },
       },
       {
@@ -35,7 +44,7 @@ const getJsonData = () => {
         source: 'floorplan',
         filter: ['all', ['==', 'style_type', 'greenbelt']],
         paint: {
-          'fill-extrusion-color': ['case', ['has', 'fill_extrusion_color'], ['get', 'fill_extrusion_color'], '#8F0'],
+          'fill-extrusion-color': ['case', ['has', 'fill_extrusion_color'], ['get', 'fill_extrusion_color'], '#daead8'],
           'fill-extrusion-height': ['case', ['has', 'fill_extrusion_height'], ['to-number', ['get', 'fill_extrusion_height']], 0.5],
           'fill-extrusion-base': 0,
           'fill-extrusion-opacity': 1,
@@ -47,16 +56,7 @@ const getJsonData = () => {
         source: 'floorplan',
         filter: ['==', 'style_type', 'parking-area'],
         paint: {
-          'fill-color': ['case', ['has', 'fill_color'], ['get', 'fill_color'], '#e7e8ee'],
-        },
-      },
-      {
-        id: 'room',
-        type: 'fill',
-        source: 'floorplan',
-        filter: ['==', 'style_type', 'room'],
-        paint: {
-          'fill-color': ['case', ['has', 'fill_color'], ['get', 'fill_color'], 'rgb(165,212,249)'],
+          'fill-color': ['case', ['has', 'fill_color'], ['get', 'fill_color'], '#e6eaef'],
         },
       },
       {
@@ -65,7 +65,16 @@ const getJsonData = () => {
         source: 'floorplan',
         filter: ['==', 'style_type', 'passageway'],
         paint: {
-          'fill-color': ['case', ['has', 'fill_color'], ['get', 'fill_color'], 'rgb(255,255,255)'],
+          'fill-color': ['case', ['has', 'fill_color'], ['get', 'fill_color'], '#fffff5'],
+        },
+      },
+      {
+        id: 'gallery',
+        type: 'fill',
+        source: 'floorplan',
+        filter: ['==', 'style_type', 'gallery'],
+        paint: {
+          'fill-color': ['case', ['has', 'fill_color'], ['get', 'fill_color'], '#fffff5'],
         },
       },
       {
@@ -74,7 +83,7 @@ const getJsonData = () => {
         source: 'floorplan',
         filter: ['==', 'style_type', 'toilet'],
         paint: {
-          'fill-color': ['case', ['has', 'fill_color'], ['get', 'fill_color'], 'rgb(235,207,163)'],
+          'fill-color': ['case', ['has', 'fill_color'], ['get', 'fill_color'], '#e0fcd2'],
         },
       },
       {
@@ -83,7 +92,7 @@ const getJsonData = () => {
         source: 'floorplan',
         filter: ['==', 'style_type', 'escalator'],
         paint: {
-          'fill-color': ['case', ['has', 'fill_color'], ['get', 'fill_color'], 'rgb(255,221,213)'],
+          'fill-color': ['case', ['has', 'fill_color'], ['get', 'fill_color'], '#ffffff'],
         },
       },
       {
@@ -92,7 +101,7 @@ const getJsonData = () => {
         source: 'floorplan',
         filter: ['==', 'style_type', 'elevator'],
         paint: {
-          'fill-color': ['case', ['has', 'fill_color'], ['get', 'fill_color'], 'rgb(255,221,213)'],
+          'fill-color': ['case', ['has', 'fill_color'], ['get', 'fill_color'], '#ededed'],
         },
       },
       {
@@ -101,7 +110,7 @@ const getJsonData = () => {
         source: 'floorplan',
         filter: ['==', 'style_type', 'stair'],
         paint: {
-          'fill-color': ['case', ['has', 'fill_color'], ['get', 'fill_color'], 'rgb(255,221,213)'],
+          'fill-color': ['case', ['has', 'fill_color'], ['get', 'fill_color'], '#ffefd9'],
         },
       },
       {
@@ -114,6 +123,15 @@ const getJsonData = () => {
         },
       },
       {
+        id: 'room',
+        type: 'fill',
+        source: 'floorplan',
+        filter: ['==', 'style_type', 'room'],
+        paint: {
+          'fill-color': ['case', ['has', 'fill_color'], ['get', 'fill_color'], '#eef5fe'],
+        },
+      },
+      {
         id: 'wall',
         type: 'fill-extrusion',
         source: 'floorplan',
@@ -122,6 +140,42 @@ const getJsonData = () => {
           'fill-extrusion-color': ['case', ['has', 'fill_extrusion_color'], ['get', 'fill_extrusion_color'], '#FFFFFF'],
           'fill-extrusion-height': ['case', ['has', 'fill_extrusion_height'], ['to-number', ['get', 'fill_extrusion_height']], 3],
           'fill-extrusion-base': 0,
+          'fill-extrusion-opacity': 1,
+        },
+      },
+      {
+        id: 'opacity-wall',
+        type: 'fill-extrusion',
+        source: 'floorplan',
+        filter: ['==', 'style_type', 'opacity-wall'],
+        paint: {
+          'fill-extrusion-color': ['case', ['has', 'fill_extrusion_color'], ['get', 'fill_extrusion_color'], '#FFFFFF'],
+          'fill-extrusion-height': ['case', ['has', 'fill_extrusion_height'], ['to-number', ['get', 'fill_extrusion_height']], 3],
+          'fill-extrusion-base': 0,
+          'fill-extrusion-opacity': 0.7,
+        },
+      },
+      {
+        id: 'furniture',
+        type: 'fill-extrusion',
+        source: 'floorplan',
+        filter: ['==', 'style_type', 'furniture'],
+        paint: {
+          'fill-extrusion-color': ['case', ['has', 'fill_extrusion_color'], ['get', 'fill_extrusion_color'], '#999999'],
+          'fill-extrusion-height': ['case', ['has', 'fill_extrusion_height'], ['to-number', ['get', 'fill_extrusion_height']], 1.5],
+          'fill-extrusion-base': ['case', ['has', 'fill_extrusion_base'], ['to-number', ['get', 'fill_extrusion_base']], 0.5],
+          'fill-extrusion-opacity': 1,
+        },
+      },
+      {
+        id: 'booth',
+        type: 'fill-extrusion',
+        source: 'floorplan',
+        filter: ['==', 'style_type', 'booth'],
+        paint: {
+          'fill-extrusion-color': ['case', ['has', 'fill_extrusion_color'], ['get', 'fill_extrusion_color'], '#999999'],
+          'fill-extrusion-height': ['case', ['has', 'fill_extrusion_height'], ['to-number', ['get', 'fill_extrusion_height']], 1.5],
+          'fill-extrusion-base': ['case', ['has', 'fill_extrusion_base'], ['to-number', ['get', 'fill_extrusion_base']], 0.5],
           'fill-extrusion-opacity': 1,
         },
       },
@@ -142,7 +196,7 @@ const getJsonData = () => {
         source: 'floorplan',
         filter: ['==', 'style_type', 'table'],
         paint: {
-          'fill-extrusion-color': ['case', ['has', 'fill_extrusion_color'], ['get', 'fill_extrusion_color'], '#FFFFFF'],
+          'fill-extrusion-color': ['case', ['has', 'fill_extrusion_color'], ['get', 'fill_extrusion_color'], '#FF0000'],
           'fill-extrusion-height': ['case', ['has', 'fill_extrusion_height'], ['to-number', ['get', 'fill_extrusion_height']], 3],
           'fill-extrusion-base': 0,
           'fill-extrusion-opacity': 1,
@@ -154,10 +208,34 @@ const getJsonData = () => {
         source: 'floorplan',
         filter: ['all', ['==', 'style_type', 'house']],
         paint: {
-          'fill-extrusion-color': ['case', ['has', 'fill_extrusion_color'], ['get', 'fill_extrusion_color'], '#FFFFFF'],
+          'fill-extrusion-color': ['case', ['has', 'fill_extrusion_color'], ['get', 'fill_extrusion_color'], '#FAFCFF'],
           'fill-extrusion-height': ['case', ['has', 'fill_extrusion_height'], ['to-number', ['get', 'fill_extrusion_height']], 3],
           'fill-extrusion-base': 0,
-          'fill-extrusion-opacity': 0.8,
+          'fill-extrusion-opacity': 1,
+        },
+      },
+      {
+        id: 'opacity-house',
+        type: 'fill-extrusion',
+        source: 'floorplan',
+        filter: ['all', ['==', 'style_type', 'opacity-house']],
+        paint: {
+          'fill-extrusion-color': ['case', ['has', 'fill_extrusion_color'], ['get', 'fill_extrusion_color'], '#FAFCFF'],
+          'fill-extrusion-height': ['case', ['has', 'fill_extrusion_height'], ['to-number', ['get', 'fill_extrusion_height']], 3],
+          'fill-extrusion-base': 0,
+          'fill-extrusion-opacity': 0.3,
+        },
+      },
+      {
+        id: 'building',
+        type: 'fill-extrusion',
+        source: 'floorplan',
+        filter: ['all', ['==', 'style_type', 'building']],
+        paint: {
+          'fill-extrusion-color': ['case', ['has', 'fill_extrusion_color'], ['get', 'fill_extrusion_color'], '#FAFCFF'],
+          'fill-extrusion-height': ['case', ['has', 'fill_extrusion_height'], ['to-number', ['get', 'fill_extrusion_height']], 3],
+          'fill-extrusion-base': 0,
+          'fill-extrusion-opacity': 1,
         },
       },
       {
@@ -170,7 +248,7 @@ const getJsonData = () => {
           'icon-size': 0.5,
           'text-field': ['get', 'name'],
           'text-size': 10,
-          'text-offset': [0, 1.25],
+          'text-offset': [0, 1.35],
         },
         paint: {
           'text-color': ['case', ['has', 'line_color'], ['get', 'line_color'], '#000000'],
