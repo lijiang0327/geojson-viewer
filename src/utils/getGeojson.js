@@ -277,6 +277,20 @@ const getJsonData = () => {
           'fill-color': ['case', ['has', 'fill_color'], ['get', 'fill_color'], 'rgb(235,10,10)'],
         },
       },
+      {
+        id: 'lineString',
+        type: 'line',
+        source: 'floorplan',
+        filter: ['==', 'model', 'yes'],
+        layout: {
+          'line-join': 'round',
+          'line-cap': 'round',
+        },
+        paint: {
+          'line-color': ['case', ['has', 'line_color'], ['get', 'line_color'], '#880'],
+          'line-width': 1,
+        },
+      },
     ],
   };
 

@@ -1,8 +1,13 @@
+/* eslint-disable no-mixed-operators */
+/* eslint-disable no-param-reassign */
 import React, {
-  useState, useRef, useMemo, useCallback,
+  useState, useRef, useMemo,
 } from 'react';
 import Map, { Source, Layer } from 'react-map-gl';
 import { FileUploader } from 'react-drag-drop-files';
+import { cloneDeep, throttle } from 'lodash';
+import { v4 as uuidv4 } from 'uuid';
+import { saveAs } from 'file-saver';
 import {
   Slider,
   SliderTrack,
@@ -20,6 +25,7 @@ import {
   Box,
   Collapse,
   HStack,
+  Button,
 } from '@chakra-ui/react';
 import { ChevronDownIcon, ChevronRightIcon } from '@chakra-ui/icons';
 import {
@@ -43,15 +49,18 @@ import { format3DModelRotation, format3DModelScale } from './utils/modalFormatte
 function App() {
   const [geojsonDatas, setGeojsonDatas] = useState([]);
   const [files, setFiles] = useState([]);
-  const [mapPitch, setMapPitch] = useState(70);
+  const [mapPitch, setMapPitch] = useState(0);
   const [zoom, setZoom] = useState(15);
   const [lightIntensity, setLightIntensity] = useState(0.5);
   const [lightColor, setLightColor] = useState('#FFFFFF');
 
   const [mapPropsExpand, setMapPropsExpand] = useState(false);
-  const [geojsonPropsExpand, setGeojsonPropsExpand] = useState(false);
   const [layerPropsExpand, setLayerPropsExpand] = useState(false);
   const [mapUploadExpand, setMapUploadExpand] = useState(false);
+  const [selectedElement, setSelectedElement] = useState(null);
+  const [selectedElementShadow, setSelectedElementShadow] = useState(null);
+
+  const dragStartPointRef = useRef(null);
 
   const jsonData = useMemo(() => getJsonData(), []);
 
@@ -60,9 +69,11 @@ function App() {
   const handleChange = async (file) => {
     try {
       const text = await file.text();
-      setGeojsonDatas([...geojsonDatas, JSON.parse(text)]);
+      const mapData = cloneDeep(JSON.parse(text));
+      mapData.features.forEach((feature) => { Object.assign(feature, { id: uuidv4() }); });
+      setGeojsonDatas([...geojsonDatas, mapData]);
       setFiles([...files, file]);
-      const center = centroid(JSON.parse(text));
+      const center = centroid(mapData);
       mapRef.current?.flyTo({
         center: center.geometry.coordinates,
       });
@@ -123,18 +134,17 @@ function App() {
           enableSelectingObjects: true,
           enableSelectingFeatures: true,
           enableTooltips: true,
+          enableHelpTooltips: true,
         },
       );
 
       window.tb = threeBoxRef.current;
     }
   };
-
   const sourceData = geojsonDatas.reduce((pre, data) => ({
     ...pre,
     features: [...pre.features, ...data.features],
   }), { generator: 'JOSM', type: 'FeatureCollection', features: [] });
-
   sourceData.features = sourceData.features.filter(({ properties: { minzoom, maxzoom } }) => {
     if (!minzoom && !maxzoom) return true;
 
@@ -147,128 +157,79 @@ function App() {
     return true;
   });
 
-  const getSource = useCallback(() => {
-    const sData = geojsonDatas.reduce((pre, data) => ({
-      ...pre,
-      features: [...pre.features, ...data.features],
-    }), { generator: 'JOSM', type: 'FeatureCollection', features: [] });
+  const sData = geojsonDatas.reduce((pre, data) => ({
+    ...pre,
+    features: [...pre.features, ...data.features],
+  }), { generator: 'JOSM', type: 'FeatureCollection', features: [] });
 
-    sData.features = sData.features.filter(({ properties: { minzoom, maxzoom } }) => {
-      if (!minzoom && !maxzoom) return true;
+  sData.features = sData.features.filter(({ properties: { minzoom, maxzoom } }) => {
+    if (!minzoom && !maxzoom) return true;
 
-      if (minzoom && maxzoom) return minzoom <= zoom && maxzoom >= zoom;
+    if (minzoom && maxzoom) return minzoom <= zoom && maxzoom >= zoom;
 
-      if (minzoom && !maxzoom) return minzoom <= zoom;
+    if (minzoom && !maxzoom) return minzoom <= zoom;
 
-      if (!minzoom && maxzoom) return maxzoom >= zoom;
+    if (!minzoom && maxzoom) return maxzoom >= zoom;
 
-      return true;
-    });
-    const mapData = sData;
+    return true;
+  });
+  const mapData = sData;
 
-    const d3Features = mapData?.features.filter(({ properties }) => properties.model === 'yes') || [];
-    const imageFeatures = mapData?.features.filter(({ properties }) => properties.image === 'yes') || [];
+  const d3Features = mapData?.features.filter(({ properties }) => properties.model === 'yes') || [];
+  const imageFeatures = mapData?.features.filter(({ properties }) => properties.image === 'yes') || [];
 
-    const on3DLayerAdded = () => {
-      threeBoxRef.current?.clear();
-      // eslint-disable-next-line array-callback-return
-      d3Features.map((feature) => {
-        const { coordinates } = feature.geometry;
-        const { url } = feature.properties;
-        const scale = format3DModelScale(feature.properties.scale || '1 1 1');
-        const rotation = format3DModelRotation(feature.properties.rotation || '0 0 0');
-        const anchor = feature.properties.anchor === 'auto' ? 'auto' : undefined;
-        const type = feature.properties.type || 'gltf';
-        const center = turf.center(turf.points(coordinates));
+  const on3DLayerAdded = throttle(() => {
+    threeBoxRef.current?.clear();
+    // eslint-disable-next-line array-callback-return
+    d3Features.map((feature) => {
+      const { coordinates } = feature.geometry;
+      const { url } = feature.properties;
+      const scale = format3DModelScale(feature.properties.scale || '1 1 1');
+      const rotation = format3DModelRotation(feature.properties.rotation || '0 0 0');
+      const anchor = feature.properties.anchor === 'auto' ? 'auto' : undefined;
+      const type = feature.properties.type || 'gltf';
+      const center = turf.center(turf.points(coordinates));
 
-        threeBoxRef.current?.loadObj({
-          obj: url,
-          type,
-          units: 'meters',
-          clone: true,
-          anchor,
-          scale,
-        }, (model) => {
-          model.set({
-            rotation,
-          });
-          model.setCoords(center.geometry.coordinates);
-          model.addHelp('aaa');
-          console.log(model);
-          threeBoxRef.current.add(model);
+      threeBoxRef.current?.loadObj({
+        obj: url,
+        type,
+        units: 'meters',
+        clone: true,
+        anchor,
+        scale,
+        name: feature.id,
+        coordinates,
+      }, (model) => {
+        if (threeBoxRef.current?.world.children.find(({ name }) => name === feature.id)) {
+          return;
+        }
+        model.set({
+          rotation,
         });
+        model.setCoords(center.geometry.coordinates);
+        model.name = feature.id;
+        model.drawBoundingBox();
+        threeBoxRef.current.add(model);
       });
-    };
-
-    return (
-      <>
-        {!!imageFeatures.length && imageFeatures.map((feature, index) => {
-          const coordinates = [...(feature.geometry?.coordinates[0] ?? [])];
-          coordinates.pop();
-          const id = `image-source-${index}`;
-          return (
-            <Source
-              key={id}
-              type="image"
-              url={feature.properties?.url}
-              id={id}
-              coordinates={[
-                ...coordinates,
-              ]}
-            >
-              <Layer
-                id="overlay"
-                source={id}
-                type="raster"
-                paint={{
-                  'raster-opacity': 1,
-                }}
-              />
-            </Source>
-          );
-        })}
-        <Source
-          type="geojson"
-          data={mapData}
-          id="my-data"
-        >
-          {getLayers()}
-          {
-            !!d3Features.length && (
-            <Layer
-              key="custom-3d-layer"
-              id="custom-3d-layer"
-              type="custom"
-              renderingMode="3d"
-              render={() => {
-                threeBoxRef.current?.update();
-              }}
-              onAdd={on3DLayerAdded}
-            />
-            )
-          }
-        </Source>
-      </>
-    );
-  }, [sourceData, zoom]);
+    });
+  }, 100);
 
   function getElementByCoordinate(coordinate) {
-    if (!coordinate || !sourceData) {
+    if (!coordinate || !threeBoxRef.current) {
       return null;
     }
 
     const pt = point([coordinate.lng, coordinate.lat]);
 
     try {
-      const element = sourceData.features.find((feature) => {
-        if (!feature.geometry?.coordinates?.length || feature.properties?.model !== 'yes') {
+      const objects = threeBoxRef.current?.world.children;
+      const element = objects.find(({ userData }) => {
+        if (!userData.coordinates?.length) {
           return false;
         }
-        const poly = feature.geometry?.type === 'Polygon' ? turf.polygon(feature.geometry.coordinates) : turf.polygon([feature.geometry.coordinates]);
+        const poly = turf.polygon([userData.coordinates]);
         return turf.booleanPointInPolygon(pt, poly);
       });
-      console.log(element);
-      console.log(threeBoxRef.current);
       return element;
     } catch (error) {
       console.log(error);
@@ -302,18 +263,109 @@ function App() {
           }}
           onLoad={onMapLoadHandler}
           onClick={(e) => {
-            console.log(e);
-            getElementByCoordinate(e.lngLat);
+            const element = getElementByCoordinate(e.lngLat);
+            if (!element) {
+              threeBoxRef.current?.world.children.forEach((child) => {
+                child.selected = false;
+              });
+              setSelectedElement(null);
+              setSelectedElementShadow(null);
+            }
+          }}
+          onMouseDown={(e) => {
+            const element = getElementByCoordinate(e.lngLat);
+            if (element) {
+              e.preventDefault();
+              dragStartPointRef.current = e.lngLat;
+              setSelectedElement(element);
+              setSelectedElementShadow(cloneDeep(element));
+              element.selected = true;
+            }
+          }}
+          onMouseMove={throttle((e) => {
+            if (!dragStartPointRef.current || !selectedElement) return;
+
+            const latDistance = e.lngLat.lat - dragStartPointRef.current.lat;
+            const lngDistance = e.lngLat.lng - dragStartPointRef.current.lng;
+
+            dragStartPointRef.current = e.lngLat;
+
+            const coordinates = cloneDeep(selectedElement.userData.coordinates);
+            selectedElement.userData.coordinates = coordinates.map(
+              ([lng, lat]) => [lng + lngDistance, lat + latDistance],
+            );
+            const coords = selectedElement.coordinates;
+            selectedElement.setCoords([coords[0] + lngDistance, coords[1] + latDistance]);
+          }, 20)}
+          onMouseUp={() => {
+            dragStartPointRef.current = null;
+            if (selectedElement) {
+              setSelectedElementShadow(cloneDeep(selectedElement));
+              const geojsonDatasShadow = cloneDeep(geojsonDatas);
+
+              geojsonDatasShadow.forEach((source) => {
+                source.features?.forEach((feature) => {
+                  if (feature.properties.model !== 'yes') {
+                    return;
+                  }
+
+                  feature.properties.rotation = `${selectedElement.rotation.x * 180 / Math.PI} ${selectedElement.rotation.y * 180 / Math.PI} ${selectedElement.rotation.z * 180 / Math.PI}`;
+                  feature.geometry.coordinates = selectedElement.userData.coordinates;
+                });
+              });
+
+              setGeojsonDatas(geojsonDatasShadow);
+            }
           }}
         >
-          {getSource()}
-          {/* <Source
-            type="geojson"
-            data={sourceData}
-            id="source-data"
-          >
-            {getLayers()}
-          </Source> */}
+          <>
+            {!!imageFeatures.length && imageFeatures.map((feature, index) => {
+              const coordinates = [...(feature.geometry?.coordinates[0] ?? [])];
+              coordinates.pop();
+              const id = `image-source-${index}`;
+              return (
+                <Source
+                  key={id}
+                  type="image"
+                  url={feature.properties?.url}
+                  id={id}
+                  coordinates={[
+                    ...coordinates,
+                  ]}
+                >
+                  <Layer
+                    id="overlay"
+                    source={id}
+                    type="raster"
+                    paint={{
+                      'raster-opacity': 1,
+                    }}
+                  />
+                </Source>
+              );
+            })}
+            <Source
+              type="geojson"
+              data={mapData}
+              id="my-data"
+            >
+              {getLayers()}
+              {
+                !!d3Features.length && (
+                <Layer
+                  key="custom-3d-layer"
+                  id="custom-3d-layer"
+                  type="custom"
+                  renderingMode="3d"
+                  render={() => {
+                    threeBoxRef.current?.update();
+                  }}
+                  onAdd={on3DLayerAdded}
+                />
+                )
+              }
+            </Source>
+          </>
         </Map>
       </Box>
       <Box
@@ -440,60 +492,144 @@ function App() {
           </Collapse>
         </Box>
 
-        <Box
-          borderBottom="1px solid #ccc"
-        >
-          <Heading
-            size="sm"
-            mb="4"
-            onClick={() => setGeojsonPropsExpand(!geojsonPropsExpand)}
-            cursor="pointer"
-            display="flex"
-            alignItems="center"
-            justifyContent="space-between"
-          >
-            GeoJson 属性:
-            {geojsonPropsExpand ? <ChevronDownIcon /> : <ChevronRightIcon />}
-          </Heading>
-          <Collapse in={geojsonPropsExpand}>
-            {/* <VStack
-              alignItems="flex-start"
-              width="100%"
-              mt={4}
-              gap={4}
-              maxH="600px"
-              overflowY="auto"
+        {
+          selectedElement && (
+            <Box
+              borderBottom="1px solid #ccc"
             >
-              {geojsonPropsExpand && sourceData?.features?.map((feature) => (
-                <Box width="100%" paddingLeft={2}>
-                  <VStack
-                    alignItems="flex-start"
-                    width="100%"
-                    mt={4}
-                    gap={4}
-                  >
-                    <Heading size="small">Geometry:</Heading>
-                    <HStack paddingLeft={4}>
-                      <Heading size="small">Type: </Heading>
-                      <Text>{feature.geometry.type}</Text>
-                    </HStack>
-                    <Heading size="small">Properties:</Heading>
-                    {feature?.properties
-                    && Object.entries(feature?.properties).map(([key, value]) => (
-                      <HStack paddingLeft={4}>
-                        <Heading size="small">
-                          {key}
-                          :
-                        </Heading>
-                        <Text>{value}</Text>
-                      </HStack>
-                    ))}
-                  </VStack>
+              <Heading
+                size="sm"
+                mb="4"
+                display="flex"
+                alignItems="center"
+                justifyContent="space-between"
+              >
+                Object:
+                {selectedElement.name}
+              </Heading>
+              <VStack
+                alignItems="flex-start"
+                width="100%"
+                mt={4}
+                gap={4}
+              >
+                <Box width="100%" display="flex" flexDirection="column" gap={4} mb="4">
+                  <Heading size="sm" width="120px">Center: </Heading>
+                  <Text>{selectedElementShadow.coordinates.join(', ')}</Text>
                 </Box>
-              ))}
-            </VStack> */}
-          </Collapse>
-        </Box>
+                <Box width="100%" display="flex" flexDirection="column" gap={4} mb="4">
+                  <Heading size="sm" width="120px">Coordinates: </Heading>
+                  <Text>{selectedElementShadow.userData?.coordinates?.join(' ')}</Text>
+                </Box>
+                <Box width="100%" display="flex" flexDirection="column" gap={4} mb="4">
+                  <Heading size="sm" width="120px">rotation: </Heading>
+                  <HStack paddingLeft="16px">
+                    <Heading size="sm">x: </Heading>
+                    <Slider
+                      min={-180}
+                      max={180}
+                      aria-label="slider-ex-1"
+                      value={selectedElementShadow.rotation.x * 180 / Math.PI}
+                      onChange={(value) => {
+                        if (value === selectedElementShadow.rotation.x) {
+                          return;
+                        }
+                        selectedElement.setRotation(
+                          { x: value },
+                        );
+                        setSelectedElementShadow(cloneDeep(selectedElement));
+                      }}
+                    >
+                      <SliderTrack>
+                        <SliderFilledTrack />
+                      </SliderTrack>
+                      <SliderThumb />
+                      <SliderMark
+                        value={Math.floor(selectedElementShadow.rotation.x * 180 / Math.PI)}
+                        textAlign="center"
+                        bg="blue.500"
+                        color="white"
+                        mt="2"
+                        ml="-5"
+                        w="12"
+                      >
+                        {Math.floor(selectedElementShadow.rotation.x * 180 / Math.PI)}
+                      </SliderMark>
+                    </Slider>
+                  </HStack>
+                  <HStack paddingLeft="16px" paddingTop="8px">
+                    <Heading size="sm">y: </Heading>
+                    <Slider
+                      min={-180}
+                      max={180}
+                      aria-label="slider-ex-1"
+                      value={selectedElementShadow.rotation.y * 180 / Math.PI}
+                      onChange={(value) => {
+                        if (value === selectedElementShadow.rotation.y) {
+                          return;
+                        }
+                        selectedElement.setRotation(
+                          { y: value },
+                        );
+                        setSelectedElementShadow(cloneDeep(selectedElement));
+                      }}
+                    >
+                      <SliderTrack>
+                        <SliderFilledTrack />
+                      </SliderTrack>
+                      <SliderThumb />
+                      <SliderMark
+                        value={Math.floor(selectedElementShadow.rotation.y * 180 / Math.PI)}
+                        textAlign="center"
+                        bg="blue.500"
+                        color="white"
+                        mt="2"
+                        ml="-5"
+                        w="12"
+                      >
+                        {Math.floor(selectedElementShadow.rotation.y * 180 / Math.PI)}
+                      </SliderMark>
+                    </Slider>
+                  </HStack>
+                  <HStack paddingLeft="16px" paddingTop="8px">
+                    <Heading size="sm">z: </Heading>
+                    <Slider
+                      min={-180}
+                      max={180}
+                      aria-label="slider-ex-1"
+                      value={selectedElementShadow.rotation.z * 180 / Math.PI}
+                      onChange={(value) => {
+                        if (value === selectedElementShadow.rotation.z) {
+                          return;
+                        }
+                        selectedElement.setRotation(
+                          { z: value },
+                        );
+                        setSelectedElementShadow(cloneDeep(selectedElement));
+                      }}
+                    >
+                      <SliderTrack>
+                        <SliderFilledTrack />
+                      </SliderTrack>
+                      <SliderThumb />
+                      <SliderMark
+                        value={Math.floor(selectedElementShadow.rotation.z * 180 / Math.PI)}
+                        textAlign="center"
+                        bg="blue.500"
+                        color="white"
+                        mt="2"
+                        ml="-5"
+                        w="12"
+                      >
+                        {Math.floor(selectedElementShadow.rotation.z * 180 / Math.PI)}
+                      </SliderMark>
+                    </Slider>
+                  </HStack>
+                </Box>
+              </VStack>
+            </Box>
+          )
+        }
 
         <Box
           borderBottom="1px solid #ccc"
@@ -625,6 +761,38 @@ function App() {
               ))}
             </VStack>
           </Collapse>
+        </Box>
+
+        <Box>
+          <Button
+            colorScheme="blue"
+            disabled={!geojsonDatas?.length || !threeBoxRef.current}
+            onClick={() => {
+              const geojsonDatasShadow = cloneDeep(geojsonDatas);
+
+              geojsonDatasShadow.forEach((source, index) => {
+                source.features?.forEach((feature) => {
+                  if (feature.properties.model !== 'yes') {
+                    return;
+                  }
+
+                  const element = threeBoxRef.current.world.children.find(
+                    (child) => child.name === feature.id,
+                  );
+
+                  if (!element) return;
+
+                  feature.properties.rotation = `${element.rotation.x * 180 / Math.PI} ${element.rotation.y * 180 / Math.PI} ${element.rotation.z * 180 / Math.PI}`;
+                  feature.geometry.coordinates = element.userData.coordinates;
+                });
+
+                const text = JSON.stringify(source ?? {}, null, 2);
+                saveAs(new Blob([text], { type: 'text/plain;charset=utf-8' }), files?.[index]?.name ?? 'map.geojson');
+              });
+            }}
+          >
+            下载
+          </Button>
         </Box>
       </Box>
     </Flex>
