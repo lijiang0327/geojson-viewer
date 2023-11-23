@@ -209,6 +209,7 @@ function App() {
         model.setCoords(center.geometry.coordinates);
         model.name = feature.id;
         model.drawBoundingBox();
+        model.userData.coordinates = coordinates;
         threeBoxRef.current.add(model);
       });
     });
@@ -279,6 +280,9 @@ function App() {
               dragStartPointRef.current = e.lngLat;
               setSelectedElement(element);
               setSelectedElementShadow(cloneDeep(element));
+              threeBoxRef.current?.world.children.forEach((child) => {
+                child.selected = false;
+              });
               element.selected = true;
             }
           }}
@@ -305,7 +309,7 @@ function App() {
 
               geojsonDatasShadow.forEach((source) => {
                 source.features?.forEach((feature) => {
-                  if (feature.properties.model !== 'yes') {
+                  if (feature.properties.model !== 'yes' || feature.id !== selectedElement.name) {
                     return;
                   }
 
