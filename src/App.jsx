@@ -32,6 +32,7 @@ import {
   centroid, point,
 } from 'turf';
 import * as turf from '@turf/turf';
+import html2canvas from 'html2canvas';
 
 import { Threebox } from 'threebox-plugin';
 
@@ -41,6 +42,8 @@ import exitSvg from './assets/exit.svg';
 import stairSvg from './assets/stair.svg';
 import escalatorSvg from './assets/escalator.svg';
 import toiletSvg from './assets/toilet.svg';
+import entranceSvg from './assets/entrance.svg';
+import exportSvg from './assets/export.svg';
 
 import './App.css';
 import getJsonData from './utils/getGeojson';
@@ -66,6 +69,7 @@ function App() {
 
   const mapRef = useRef();
   const threeBoxRef = useRef();
+
   const handleChange = async (file) => {
     try {
       const text = await file.text();
@@ -109,6 +113,12 @@ function App() {
     }, {
       name: 'ips_toilet',
       src: toiletSvg,
+    }, {
+      name: 'ips_entrance',
+      src: entranceSvg,
+    }, {
+      name: 'ips_exit',
+      src: exportSvg,
     }];
     images.forEach(({ src, name }) => {
       const img = new Image(40, 40);
@@ -181,18 +191,18 @@ function App() {
   const on3DLayerAdded = throttle(() => {
     threeBoxRef.current?.clear();
     // eslint-disable-next-line array-callback-return
-    d3Features.map((feature) => {
+    d3Features.forEach((feature) => {
       const { coordinates } = feature.geometry;
-      const { url } = feature.properties;
+      const {
+        url, anchor, title, type, titleColor, titleFontSize, titleBackgroundColor,
+      } = feature.properties;
       const scale = format3DModelScale(feature.properties.scale || '1 1 1');
       const rotation = format3DModelRotation(feature.properties.rotation || '0 0 0');
-      const anchor = feature.properties.anchor === 'auto' ? 'auto' : undefined;
-      const type = feature.properties.type || 'gltf';
       const center = turf.center(turf.points(coordinates));
 
       threeBoxRef.current?.loadObj({
         obj: url,
-        type,
+        type: type ?? 'gltf',
         units: 'meters',
         clone: true,
         anchor,
@@ -208,8 +218,27 @@ function App() {
         });
         model.setCoords(center.geometry.coordinates);
         model.name = feature.id;
-        model.drawBoundingBox();
         model.userData.coordinates = coordinates;
+        if (title) {
+          const label = document.createElement('span');
+          label.innerText = title;
+          label.style.color = titleColor ?? '#000000';
+          label.style.fontSize = titleFontSize ?? '12px';
+          label.style.backgroundColor = titleBackgroundColor ?? 'transparent';
+          label.style.padding = '2px 6px';
+          label.style.borderRadius = '4px';
+          const size = model.getSize();
+          model.addLabel(
+            label,
+            true,
+            {
+              z: model.center.z,
+              y: model.center.y + size.y * 0.5,
+              x: model.center.x + size.x * 0.5,
+            },
+            1.2,
+          );
+        }
         threeBoxRef.current.add(model);
       });
     });
@@ -238,6 +267,34 @@ function App() {
     }
   }
 
+  // const zoomOut = async () => {
+  //   const mapContainer = document.getElementById('map');
+
+  //   mapContainer.style.position = 'fix';
+
+  //   mapContainer.style.left = 0;
+  //   mapContainer.style.top = 0;
+  //   mapContainer.style.width = '7500px';
+  //   mapContainer.style.height = '4300px';
+
+  //   mapRef.current.resize();
+  //   mapRef.current.setZoom(19.6);
+  // };
+
+  const saveToImage = async () => {
+    const mapContainer = document.getElementById('map');
+    const canvas = await html2canvas(mapContainer, {
+      width: mapContainer.clientWidth,
+      height: mapContainer.clientHeight,
+    });
+
+    setTimeout(() => {
+      canvas.toBlob((blob) => {
+        saveAs(blob, 'aaa');
+      });
+    }, 500);
+  };
+
   return (
     <Flex direction="row">
       <Box height="100vh" flex={1} position="relative" overflow="hidden">
@@ -248,6 +305,7 @@ function App() {
             latitude: 38.915643,
             zoom: 15,
           }}
+          id="map"
           ref={mapRef}
           onZoom={({ viewState: { zoom: z } }) => { setZoom(z); }}
           style={{ width: '100%', height: '100%' }}
@@ -255,9 +313,9 @@ function App() {
           pitch={mapPitch}
           renderWorldCopies={false}
           attributionControl={false}
-          pitchWithRotate
           touchPitch={false}
-          dragRotate={false}
+          preserveDrawingBuffer
+          dragRotate
           light={{
             color: lightColor,
             intensity: lightIntensity,
@@ -533,7 +591,7 @@ function App() {
                       min={-180}
                       max={180}
                       aria-label="slider-ex-1"
-                      value={selectedElementShadow.rotation.x * 180 / Math.PI}
+                      value={Math.floor(selectedElementShadow.rotation.x * 180 / Math.PI)}
                       onChange={(value) => {
                         if (value === selectedElementShadow.rotation.x) {
                           return;
@@ -567,7 +625,7 @@ function App() {
                       min={-180}
                       max={180}
                       aria-label="slider-ex-1"
-                      value={selectedElementShadow.rotation.y * 180 / Math.PI}
+                      value={Math.floor(selectedElementShadow.rotation.y * 180 / Math.PI)}
                       onChange={(value) => {
                         if (value === selectedElementShadow.rotation.y) {
                           return;
@@ -601,7 +659,7 @@ function App() {
                       min={-180}
                       max={180}
                       aria-label="slider-ex-1"
-                      value={selectedElementShadow.rotation.z * 180 / Math.PI}
+                      value={Math.floor(selectedElementShadow.rotation.z * 180 / Math.PI)}
                       onChange={(value) => {
                         if (value === selectedElementShadow.rotation.z) {
                           return;
@@ -796,6 +854,17 @@ function App() {
             }}
           >
             下载
+          </Button>
+          {/* <Button
+            onClick={zoomOut}
+          >
+            放大
+          </Button> */}
+          <Button
+            onClick={saveToImage}
+            marginLeft="8px"
+          >
+            下载成图片
           </Button>
         </Box>
       </Box>

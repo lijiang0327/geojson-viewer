@@ -60,6 +60,15 @@ const getJsonData = () => {
         },
       },
       {
+        id: 'parking-space',
+        type: 'fill',
+        source: 'floorplan',
+        filter: ['==', 'style_type', 'parking-space'],
+        paint: {
+          'fill-color': ['case', ['has', 'fill_color'], ['get', 'fill_color'], '#e6eaef'],
+        },
+      },
+      {
         id: 'passageway',
         type: 'fill',
         source: 'floorplan',
@@ -247,11 +256,38 @@ const getJsonData = () => {
           'icon-image': ['get', 'icon_sails'],
           'icon-size': 0.5,
           'text-field': ['get', 'name'],
-          'text-size': 10,
+          'text-size': ['case', ['has', 'text-size'], ['to-number', ['get', 'text-size']], 10],
           'text-offset': [0, 1.35],
         },
         paint: {
-          'text-color': ['case', ['has', 'line_color'], ['get', 'line_color'], '#000000'],
+          'text-color': ['case', ['has', 'text-color'], ['get', 'text-color'], '#000000'],
+        },
+      },
+      {
+        id: 'label',
+        type: 'symbol',
+        source: 'floorplan',
+        filter: ['==', 'style_type', 'label'],
+        layout: {
+          'text-field': ['get', 'name'],
+          'text-size': [
+            'interpolate', ['linear'], ['zoom'],
+            0, 0,
+            17, 3,
+            18, 4,
+            18.5, 5,
+            19, 6,
+            19.5, 8,
+            20, 10,
+            21.3, 14,
+            21.5, 18,
+            21.8, 22,
+            22, 26,
+          ],
+          'text-offset': [0, 0],
+        },
+        paint: {
+          'text-color': ['case', ['has', 'text-color'], ['get', 'text-color'], '#000000'],
         },
       },
       {
