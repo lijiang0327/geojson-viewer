@@ -26,6 +26,7 @@ import {
   Collapse,
   HStack,
   Button,
+  Select,
 } from '@chakra-ui/react';
 import { ChevronDownIcon, ChevronRightIcon } from '@chakra-ui/icons';
 import {
@@ -69,6 +70,13 @@ function App() {
 
   const mapRef = useRef();
   const threeBoxRef = useRef();
+
+  const onLightPresetChangeHandler = (e) => {
+    console.log(e.target.value);
+    console.log(mapRef.current);
+    // const map = mapRef.current?.getMap();
+    mapRef.current?.setConfigProperty('basemap', 'lightPreset', e.target.value);
+  };
 
   const handleChange = async (file) => {
     try {
@@ -267,19 +275,19 @@ function App() {
     }
   }
 
-  // const zoomOut = async () => {
-  //   const mapContainer = document.getElementById('map');
+  const zoomOut = async () => {
+    const mapContainer = document.getElementById('map');
 
-  //   mapContainer.style.position = 'fix';
+    mapContainer.style.position = 'fix';
 
-  //   mapContainer.style.left = 0;
-  //   mapContainer.style.top = 0;
-  //   mapContainer.style.width = '7500px';
-  //   mapContainer.style.height = '4300px';
+    mapContainer.style.left = 0;
+    mapContainer.style.top = 0;
+    mapContainer.style.width = '7500px';
+    mapContainer.style.height = '4300px';
 
-  //   mapRef.current.resize();
-  //   mapRef.current.setZoom(19.6);
-  // };
+    mapRef.current.resize();
+    mapRef.current.setZoom(19.6);
+  };
 
   const saveToImage = async () => {
     const mapContainer = document.getElementById('map');
@@ -549,6 +557,17 @@ function App() {
               <Box width="100%" display="flex" gap={4} alignItems="center" mb="4">
                 <Heading size="sm" width="120px">Zoom: </Heading>
                 <Text>{zoom}</Text>
+              </Box>
+              <Box width="100%" display="flex" gap={4} alignItems="center" mb="4">
+                <Heading size="sm" width="120px">lightPreset: </Heading>
+                <Select
+                  onChange={onLightPresetChangeHandler}
+                >
+                  <option value="dawn">Dawn</option>
+                  <option value="day">Day</option>
+                  <option value="dusk">Dusk</option>
+                  <option value="night">Night</option>
+                </Select>
               </Box>
             </VStack>
           </Collapse>
@@ -855,11 +874,11 @@ function App() {
           >
             下载
           </Button>
-          {/* <Button
+          <Button
             onClick={zoomOut}
           >
             放大
-          </Button> */}
+          </Button>
           <Button
             onClick={saveToImage}
             marginLeft="8px"
